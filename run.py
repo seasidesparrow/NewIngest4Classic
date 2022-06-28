@@ -1,4 +1,4 @@
-from adsingestp.parsers import jats
+from adsingestp.parsers import arxiv, crossref, datacite, jats
 from newparse.translator import Translator
 from pyingest.serializers.classic import Tagged
 import json
@@ -36,6 +36,8 @@ def main():
             if parser:
                 parsed = parser.parse(data)
                 if parsed:
+                    with open('test.json','w') as fj:
+                        fj.write(json.dumps(parsed, indent=2, sort_keys=True))
                     xlator = Translator(data=parsed)
                     xlator.translate()
                     documents.append(xlator.output)

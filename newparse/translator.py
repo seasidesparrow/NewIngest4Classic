@@ -170,14 +170,21 @@ class Translator(object):
             self.output['refhandler_list'] = references
 
 
-    def _get_pubdat(self):
+    def _get_pubdat(self, bibstem):
         # This is where you send the data to get %R and %J
         self.output['publication'] = 'lol'
-        self.output['bibcode'] = 'wut'
+        self.output['bibcode'] = bibstem
+
+
+    def _custom_pubdat(self, publisher, bibstem):
+        # This is where you call publisher-specific routines
+        # to get %R and %J
+        self.output['publication'] = 'test1'
+        self.output['bibcode'] = 'test2'
         
 
 
-    def translate(self, data=None):
+    def translate(self, data=None, publisher=None, bibstem=None):
         if not self.data:
             raise ParserException('You need to supply data to translate!')
         else:
@@ -185,6 +192,9 @@ class Translator(object):
             self._get_abstract()
             self._get_keywords()
             self._get_auths_affils()
-            self._get_pubdat()
             self._get_date()
             self._get_references()
+            if publisher:
+                self._custom_pubdat(publisher, bibstem)
+            else:
+                self._get_pubdat(bibstem)
