@@ -17,6 +17,7 @@ def load_file(filename):
 def main():
     infiles=['test.xml']
     filetype = 'jats'
+    publisher = 'iop'
     documents=[]
 
     for f in infiles:

@@ -1,4 +1,5 @@
 from pyingest.config.config import *
+from .xconfig import *
 from bs4 import BeautifulSoup
 import re
 
@@ -169,20 +170,57 @@ class Translator(object):
         if references:
             self.output['refhandler_list'] = references
 
+    def _get_bibstem(self):
+        pubdat = self.data.get('publication', None)
+        if pubdat:
+            issn_list = pubdat.get('ISSN', None)
+            bibstem_list = []
+            for issn in issn_list:
+                i = issn['issnString']
+                bibstem_list.append(ISSN_TO_BIBSTEM[i]['bibstem'])
+            bibstem_list = list(set(bibstem_list))
+            if len(bibstem_list) == 1:
+                return bibstem_list[0]
+            else:
+                raise NoBibstemException('Bibstems from input file: %s' % '; '.join(bibstem_list))
+        return
 
-    def _get_pubdat(self, bibstem):
+    def _get_pagination(self):
+        pagination = self.data.get('pagination', None)
+        page_return = {}
+        if pagination:
+
+            elecID = pagination.get('electronicID', None)
+            firstPage = pagination.get('firstPage', None)
+            pageRange = pagination.get('pageRange', None)
+            lastPage = pagination.get('lastPage', None)
+            pageCount = pagination.get('pageCount', None)
+
+            if elecID:
+                page = elecID
+                ptype = 'id'
+            elif firstPage:
+                page = firstPage
+                ptype = 'page'
+            elif pageRange:
+                page = pageRange.split('-')[0]
+                ptype = 'page'
+
+    def _get_pub_and_bibcode(self, bibstem=None):
         # This is where you send the data to get %R and %J
         self.output['publication'] = 'lol'
-        self.output['bibcode'] = bibstem
-
-
-    def _custom_pubdat(self, publisher, bibstem):
-        # This is where you call publisher-specific routines
-        # to get %R and %J
-        self.output['publication'] = 'test1'
-        self.output['bibcode'] = 'test2'
-        
-
+        publication = self.data.get('publication', None)
+        pagination = self._get_pagination()
+        if publication:
+            pubname = publication.get('pubName', None)
+            volume = publication.get('volumeNum', None)
+            issue = publication.get('issueNum', None)
+            year = publication.get('pubYear', None)
+            if not bibstem:
+                try:
+                    bibstem = self._get_bibstem()
+                except Exception as err:
+                    bibstem = 'XSTEM'
 
     def translate(self, data=None, publisher=None, bibstem=None):
         if not self.data:
@@ -194,7 +232,4 @@ class Translator(object):
             self._get_auths_affils()
             self._get_date()
             self._get_references()
-            if publisher:
-                self._custom_pubdat(publisher, bibstem)
-            else:
-                self._get_pubdat(bibstem)
+            self._get_pub_and_bibcode()
