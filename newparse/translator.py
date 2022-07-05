@@ -23,7 +23,7 @@ class Translator(object):
     # DETAGGER (from jats.py)
     def _detag(self, r, tags_keep, **kwargs):
 
-        newr = BeautifulSoup(str(r), 'lxml')
+        newr = BeautifulSoup(str(r), 'lxml-xml')
         try:
             tag_list = list(set([x.name for x in newr.find_all()]))
         except Exception as err:
@@ -148,10 +148,11 @@ class Translator(object):
     def _get_keywords(self):
         keywords = self.data.get('keywords', None)
         keyword_list = []
-        for k in keywords:
-            keyw = k.get('keyString', None)
-            if keyw:
-                keyword_list.append(keyw)
+        if keywords:
+            for k in keywords:
+                keyw = k.get('keyString', None)
+                if keyw:
+                    keyword_list.append(keyw)
         if keyword_list:
             self.output['keywords'] = ', '.join(keyword_list)
 
@@ -162,6 +163,12 @@ class Translator(object):
         if not date:
             date = pubdate.get('electrDate', None)
         if date:
+            try:
+                (y,m,d) = date.split('-')
+                if int(d) == 0:
+                   date = '-'.join([y,m])
+            except Exception as err:
+                pass
             self.output['pubdate'] = date
 
 
@@ -208,7 +215,6 @@ class Translator(object):
 
     def _get_pub_and_bibcode(self, bibstem=None):
         # This is where you send the data to get %R and %J
-        self.output['publication'] = 'lol'
         publication = self.data.get('publication', None)
         pagination = self._get_pagination()
         if publication:
@@ -221,6 +227,7 @@ class Translator(object):
                     bibstem = self._get_bibstem()
                 except Exception as err:
                     bibstem = 'XSTEM'
+            
 
     def translate(self, data=None, publisher=None, bibstem=None):
         if not self.data:

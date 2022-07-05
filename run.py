@@ -15,7 +15,7 @@ def load_file(filename):
 
 
 def main():
-    infiles=['test.xml']
+    infiles=['../VOR_10.1119_10.0009409.xml']
     filetype = 'jats'
     publisher = 'iop'
     documents=[]
