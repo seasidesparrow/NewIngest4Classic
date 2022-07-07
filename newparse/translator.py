@@ -141,8 +141,9 @@ class Translator(object):
         abstract = self.data.get('abstract', None)
         if abstract:
             abstract_raw = abstract.get('textEnglish', None)
-        tagset = JATS_TAGSET['abstract'] or None
-        self.output['abstract'] = self._detag(abstract_raw, tagset)
+        #tagset = JATS_TAGSET['abstract'] or None
+        #self.output['abstract'] = self._detag(abstract_raw, tagset)
+        self.output['abstract'] = abstract_raw
 
 
     def _get_keywords(self):
@@ -177,6 +178,7 @@ class Translator(object):
         if references:
             self.output['refhandler_list'] = references
 
+
     def _get_bibstem(self):
         pubdat = self.data.get('publication', None)
         if pubdat:
@@ -192,42 +194,56 @@ class Translator(object):
                 raise NoBibstemException('Bibstems from input file: %s' % '; '.join(bibstem_list))
         return
 
-    def _get_pagination(self):
-        pagination = self.data.get('pagination', None)
-        page_return = {}
-        if pagination:
 
-            elecID = pagination.get('electronicID', None)
-            firstPage = pagination.get('firstPage', None)
-            pageRange = pagination.get('pageRange', None)
-            lastPage = pagination.get('lastPage', None)
-            pageCount = pagination.get('pageCount', None)
-
-            if elecID:
-                page = elecID
-                ptype = 'id'
-            elif firstPage:
-                page = firstPage
-                ptype = 'page'
-            elif pageRange:
-                page = pageRange.split('-')[0]
-                ptype = 'page'
-
-    def _get_pub_and_bibcode(self, bibstem=None):
-        # This is where you send the data to get %R and %J
+    def _get_publication_and_bibcode(self, publisher):
         publication = self.data.get('publication', None)
-        pagination = self._get_pagination()
+        pagination = self.data.get('pagination', None)
+        pubstring = None
         if publication:
-            pubname = publication.get('pubName', None)
+            journal = publication.get('pubName', None)
+            year = publication.get('pubYear', None)
             volume = publication.get('volumeNum', None)
             issue = publication.get('issueNum', None)
-            year = publication.get('pubYear', None)
-            if not bibstem:
-                try:
-                    bibstem = self._get_bibstem()
-                except Exception as err:
-                    bibstem = 'XSTEM'
-            
+            if journal:
+                pubstring = journal
+            if volume:
+                if pubstring:
+                    pubstring = pubstring + ', Volume ' + volume
+                else:
+                    pubstring = 'Volume ' + volume
+            else:
+                if publisher.lower() == 'oup':
+                    if pubstring:
+                        pubstring = pubstring + ', Advance Access'
+                    else:
+                        pubstring = 'Advance Access'
+            if issue:
+                if pubstring:
+                    pubstring = pubstring + ', Issue ' + issue
+                else:
+                    pubstring = 'Issue ' + issue
+        if pagination:
+            pagerange = pagination.get('pageRange', None)
+            pagecount = pagination.get('pageCount', None)
+            idno = pagination.get('electronicID', None)
+            firstp = pagination.get('firstPage', None)
+            lastp = pagination.get('lastPage', None)
+            if (firstp and lastp) and not pagerange:
+                pagerange = firstp + '-' + lastp
+            if pagerange:
+                if pubstring:
+                    pubstring = pubstring + ', pp.' + pagerange
+                else:
+                    pubstring = 'pp.' + pagerange
+            elif idno:
+                if pubstring:
+                    pubstring = pubstring + ', id.' + idno
+                else:
+                    pubstring = 'id.' + idno
+                if pagecount:
+                    pubstring = pubstring + ', ' + pagecount + ' pp.'
+        if pubstring:
+            self.output['publication'] = pubstring
 
     def translate(self, data=None, publisher=None, bibstem=None):
         if not self.data:
@@ -239,4 +255,4 @@ class Translator(object):
             self._get_auths_affils()
             self._get_date()
             self._get_references()
-            self._get_pub_and_bibcode()
+            self._get_publication_and_bibcode(publisher)
