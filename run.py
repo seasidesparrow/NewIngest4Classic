@@ -16,8 +16,6 @@ def load_file(filename):
 
 
 def main():
-    # infiles=['../VOR_10.1119_10.0009409.xml']
-    # infiles=['test.xml']
     infiles = glob('newparse/tests/data/input/*.xml')
     filetype = 'jats'
     documents=[]
