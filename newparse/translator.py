@@ -1,5 +1,4 @@
 from pyingest.config.config import *
-from .xconfig import *
 from bs4 import BeautifulSoup
 import re
 
@@ -15,8 +14,10 @@ class Translator(object):
     '''
 
     # INITIALIZATION
-    def __init__(self, data=None, **kwargs):
+    def __init__(self, data=None, issn2bibstem=None, name2bibstem=None, **kwargs):
         self.data = data
+        self.issn2bibstem = issn2bibstem
+        self.name2bibstem = name2bibstem
         self.output = dict()
         return
 
@@ -173,29 +174,26 @@ class Translator(object):
             self.output['pubdate'] = date
 
 
+    def _get_properties(self):
+        props = {}
+        persistentids = self.data.get('persistentIDs', None)
+        if persistentids:
+            for i in persistentids:
+                doi = i.get('DOI', None)
+                if doi:
+                    props['DOI'] = doi
+        if props:
+            self.output['properties'] = props
+        pass
+
+
     def _get_references(self):
         references = self.data.get('references', None)
         if references:
             self.output['refhandler_list'] = references
 
 
-    def _get_bibstem(self):
-        pubdat = self.data.get('publication', None)
-        if pubdat:
-            issn_list = pubdat.get('ISSN', None)
-            bibstem_list = []
-            for issn in issn_list:
-                i = issn['issnString']
-                bibstem_list.append(ISSN_TO_BIBSTEM[i]['bibstem'])
-            bibstem_list = list(set(bibstem_list))
-            if len(bibstem_list) == 1:
-                return bibstem_list[0]
-            else:
-                raise NoBibstemException('Bibstems from input file: %s' % '; '.join(bibstem_list))
-        return
-
-
-    def _get_publication_and_bibcode(self, publisher):
+    def _get_publication(self):
         publication = self.data.get('publication', None)
         pagination = self.data.get('pagination', None)
         pubstring = None
@@ -204,6 +202,7 @@ class Translator(object):
             year = publication.get('pubYear', None)
             volume = publication.get('volumeNum', None)
             issue = publication.get('issueNum', None)
+            publisher = publication.get('publisher', None)
             if journal:
                 pubstring = journal
             if volume:
@@ -211,12 +210,9 @@ class Translator(object):
                     pubstring = pubstring + ', Volume ' + volume
                 else:
                     pubstring = 'Volume ' + volume
-            else:
-                if publisher.lower() == 'oup':
-                    if pubstring:
-                        pubstring = pubstring + ', Advance Access'
-                    else:
-                        pubstring = 'Advance Access'
+            elif publisher:
+                if publisher == 'OUP' or publisher == 'Oxford University Press':
+                    pubstring = pubstring + ', Advance Access'
             if issue:
                 if pubstring:
                     pubstring = pubstring + ', Issue ' + issue
@@ -255,4 +251,5 @@ class Translator(object):
             self._get_auths_affils()
             self._get_date()
             self._get_references()
-            self._get_publication_and_bibcode(publisher)
+            self._get_properties()
+            self._get_publication()
