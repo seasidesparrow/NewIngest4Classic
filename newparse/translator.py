@@ -14,15 +14,17 @@ class Translator(object):
     '''
 
     # INITIALIZATION
-    def __init__(self, data=None, **kwargs):
+    def __init__(self, data=None, issn2bibstem=None, name2bibstem=None, **kwargs):
         self.data = data
+        self.issn2bibstem = issn2bibstem
+        self.name2bibstem = name2bibstem
         self.output = dict()
         return
 
     # DETAGGER (from jats.py)
     def _detag(self, r, tags_keep, **kwargs):
 
-        newr = BeautifulSoup(str(r), 'lxml')
+        newr = BeautifulSoup(str(r), 'lxml-xml')
         try:
             tag_list = list(set([x.name for x in newr.find_all()]))
         except Exception as err:
@@ -140,17 +142,19 @@ class Translator(object):
         abstract = self.data.get('abstract', None)
         if abstract:
             abstract_raw = abstract.get('textEnglish', None)
-        tagset = JATS_TAGSET['abstract'] or None
-        self.output['abstract'] = self._detag(abstract_raw, tagset)
+        #tagset = JATS_TAGSET['abstract'] or None
+        #self.output['abstract'] = self._detag(abstract_raw, tagset)
+        self.output['abstract'] = abstract_raw
 
 
     def _get_keywords(self):
         keywords = self.data.get('keywords', None)
         keyword_list = []
-        for k in keywords:
-            keyw = k.get('keyString', None)
-            if keyw:
-                keyword_list.append(keyw)
+        if keywords:
+            for k in keywords:
+                keyw = k.get('keyString', None)
+                if keyw:
+                    keyword_list.append(keyw)
         if keyword_list:
             self.output['keywords'] = ', '.join(keyword_list)
 
@@ -161,7 +165,26 @@ class Translator(object):
         if not date:
             date = pubdate.get('electrDate', None)
         if date:
+            try:
+                (y,m,d) = date.split('-')
+                if int(d) == 0:
+                   date = '-'.join([y,m])
+            except Exception as err:
+                pass
             self.output['pubdate'] = date
+
+
+    def _get_properties(self):
+        props = {}
+        persistentids = self.data.get('persistentIDs', None)
+        if persistentids:
+            for i in persistentids:
+                doi = i.get('DOI', None)
+                if doi:
+                    props['DOI'] = doi
+        if props:
+            self.output['properties'] = props
+        pass
 
 
     def _get_references(self):
@@ -170,14 +193,55 @@ class Translator(object):
             self.output['refhandler_list'] = references
 
 
-    def _get_pubdat(self):
-        # This is where you send the data to get %R and %J
-        self.output['publication'] = 'lol'
-        self.output['bibcode'] = 'wut'
-        
+    def _get_publication(self):
+        publication = self.data.get('publication', None)
+        pagination = self.data.get('pagination', None)
+        pubstring = None
+        if publication:
+            journal = publication.get('pubName', None)
+            year = publication.get('pubYear', None)
+            volume = publication.get('volumeNum', None)
+            issue = publication.get('issueNum', None)
+            publisher = publication.get('publisher', None)
+            if journal:
+                pubstring = journal
+            if volume:
+                if pubstring:
+                    pubstring = pubstring + ', Volume ' + volume
+                else:
+                    pubstring = 'Volume ' + volume
+            elif publisher:
+                if publisher == 'OUP' or publisher == 'Oxford University Press':
+                    pubstring = pubstring + ', Advance Access'
+            if issue:
+                if pubstring:
+                    pubstring = pubstring + ', Issue ' + issue
+                else:
+                    pubstring = 'Issue ' + issue
+        if pagination:
+            pagerange = pagination.get('pageRange', None)
+            pagecount = pagination.get('pageCount', None)
+            idno = pagination.get('electronicID', None)
+            firstp = pagination.get('firstPage', None)
+            lastp = pagination.get('lastPage', None)
+            if (firstp and lastp) and not pagerange:
+                pagerange = firstp + '-' + lastp
+            if pagerange:
+                if pubstring:
+                    pubstring = pubstring + ', pp.' + pagerange
+                else:
+                    pubstring = 'pp.' + pagerange
+            elif idno:
+                if pubstring:
+                    pubstring = pubstring + ', id.' + idno
+                else:
+                    pubstring = 'id.' + idno
+                if pagecount:
+                    pubstring = pubstring + ', ' + pagecount + ' pp.'
+        if pubstring:
+            self.output['publication'] = pubstring
 
-
-    def translate(self, data=None):
+    def translate(self, data=None, publisher=None, bibstem=None):
         if not self.data:
             raise ParserException('You need to supply data to translate!')
         else:
@@ -185,6 +249,7 @@ class Translator(object):
             self._get_abstract()
             self._get_keywords()
             self._get_auths_affils()
-            self._get_pubdat()
             self._get_date()
             self._get_references()
+            self._get_properties()
+            self._get_publication()

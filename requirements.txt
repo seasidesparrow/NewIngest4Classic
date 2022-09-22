@@ -1,2 +1,2 @@
-git+https://github.com/adsabs/ADSIngestParser.git
+git+https://github.com/seasidesparrow/ADSIngestParser.git@affix
 git+https://github.com/adsabs/adsabs-pyingest.git
