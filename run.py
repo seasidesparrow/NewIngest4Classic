@@ -16,8 +16,8 @@ def load_file(filename):
 
 
 def main():
-    # infiles = glob('newparse/tests/data/input/*.xml')
-    infiles = ['newparse/tests/data/input/apsjats_10.1103.PhysRevA.97.019999.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevAccelBeams.21.014702.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevA.97.012101.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevB.96.081117.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevB.96.104435.fulltext.xml', 'newparse/tests/data/input/VOR_10.1119_10.0009409.xml']
+    infiles = glob('newparse/tests/data/input/*jats*.xml')
+    # infiles = ['newparse/tests/data/input/apsjats_10.1103.PhysRevA.97.019999.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevAccelBeams.21.014702.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevA.97.012101.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevB.96.081117.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevB.96.104435.fulltext.xml', 'newparse/tests/data/input/VOR_10.1119_10.0009409.xml']
     filetype = 'jats'
     documents=[]
 
@@ -44,9 +44,9 @@ def main():
                         print("Parsing failed: %s" % err)
                     else:
                         if parsed:
-                            outf = f.split('/')[-1] + '.json'
-                            with open(outf,'w') as fj:
-                                fj.write(json.dumps(parsed, indent=2, sort_keys=True))
+                            #outf = f.split('/')[-1] + '.json'
+                            #with open(outf,'w') as fj:
+                            #    fj.write(json.dumps(parsed, indent=2, sort_keys=True))
                             xlator = Translator(data=parsed)
                             xlator.translate()
                             documents.append(xlator.output)

@@ -1,8 +1,14 @@
 from pyingest.config.config import *
+from adsenrich.bibcodes import BibcodeGenerator
 from bs4 import BeautifulSoup
 import re
 
 fix_ampersand = re.compile(r"(&amp;)(.*?)(;)")
+
+try:
+    bibgen = BibcodeGenerator()
+except Exception as err:
+    print('Warning, BibcodeGenerator not initialized!')
 
 class ParserException(Exception):
     pass
@@ -14,10 +20,8 @@ class Translator(object):
     '''
 
     # INITIALIZATION
-    def __init__(self, data=None, issn2bibstem=None, name2bibstem=None, **kwargs):
+    def __init__(self, data=None, **kwargs):
         self.data = data
-        self.issn2bibstem = issn2bibstem
-        self.name2bibstem = name2bibstem
         self.output = dict()
         return
 
@@ -241,6 +245,15 @@ class Translator(object):
         if pubstring:
             self.output['publication'] = pubstring
 
+    def _get_bibcode(self):
+        bibcode = None
+        try:
+            print('yay!')
+            self.output['bibcode'] = bibgen.make_bibcode(self.data)
+            print('yay again!')
+        except Exception as err:
+            print('Couldnt make a bibcode: %s' % str(err))
+
     def translate(self, data=None, publisher=None, bibstem=None):
         if not self.data:
             raise ParserException('You need to supply data to translate!')
@@ -253,3 +266,4 @@ class Translator(object):
             self._get_references()
             self._get_properties()
             self._get_publication()
+            self._get_bibcode()
