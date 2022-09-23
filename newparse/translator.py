@@ -248,9 +248,7 @@ class Translator(object):
     def _get_bibcode(self):
         bibcode = None
         try:
-            print('yay!')
             self.output['bibcode'] = bibgen.make_bibcode(self.data)
-            print('yay again!')
         except Exception as err:
             print('Couldnt make a bibcode: %s' % str(err))
 
