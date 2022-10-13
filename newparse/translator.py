@@ -133,10 +133,10 @@ class Translator(object):
                 if name:
                     # person name
                     auth = self._get_name(name)
-                # person attribs and affil
-                aff = self._get_affil(a)
-                author_list.append(auth)
-                affil_list.append(aff)
+                    # person attribs and affil
+                    aff = self._get_affil(a)
+                    author_list.append(auth)
+                    affil_list.append(aff)
             self.output['authors'] = author_list
             self.output['affiliations'] = affil_list
 
