@@ -1,80 +1,69 @@
-from habanero import Crossref
-from pyingest.serializers import classic
-import json
+import argparse
+from newparse import translator, doiharvest
+from adsingestp.parsers.crossref import CrossrefParser
+from pyingest.serializers.classic import Tagged
 
-
-class CrossrefHarvestError(Exception):
-    pass
-
-
-class EmptyBodyError(Exception):
-    pass
-
-
-class DOIHarvester(object):
-
-    def __init__(self):
-        pass
-
-    def harvest(self, doi=None):
-        try:
-            cr = Crossref(mailto="ads@cfa.harvard.edu", ua_string="NASA ADS @ Harvard.edu")
-            doi_meta_json = cr.works(ids=doi)
-        except Exception as err:
-            raise CrossrefHarvestError(err)
-        else:
-            return doi_meta_json
-
-
-class CrossrefJSONParser(object):
-
-    def __init__(self):
-        pass
-
-    def parse(self, xref_json=None):
-        if xref_json:
-            output_metadata = dict()
-            # The record is already a json object, but it has a different
-            # structure than our IngestDataModel.  You need a translator to
-            # turn this into a record to pass to 
-            # pyingest.serializers.classic.Tagged
-            # similar to newparse.translator
-            # MAKE A JAZZ NOISE HERE.
-            output_metadata['NOISE'] = 'JAZZ'
-
-            return output_metadata
-        else:
-            raise EmptyBodyError('No data to parse.')
+def get_args():
+    parser = argparse.ArgumentParser('Create an ADS record from a DOI')
+    parser.add_argument('-d',
+                        '--doi',
+                        dest='fetch_doi',
+                        action='store',
+                        default=None,
+                        help='DOI to fetch')
+    parser.add_argument('-f',
+                        '--outfile',
+                        dest='output_file',
+                        action='store',
+                        default='./doi.tag',
+                        help='File that tagged format will be written to')
+    args = parser.parse_args()
+    return args
 
 
 def main():
+
+    args = get_args()
+    documents = []
+    if args.fetch_doi:
+        try:
+            getdoi = doiharvest.DoiHarvester(doi=args.fetch_doi)
+            xml_record = getdoi.get_record()
+        except Exception as err:
+            print('parsing failed, because doi_harvester failed: %s' % err)
+        else:
+            try:
+                parser = CrossrefParser()
+                ingest_record = parser.parse(xml_record)
+            except Exception as err:
+                print('parsing failed, because ingestparser failed: %s' % err)
+            else:
+                try:
+                    t = translator.Translator(data=ingest_record)
+                    t.translate()
+                    documents.append(t.output)
+                except Exception as err:
+                    print('tagged record creation failed: %s' % err)
+    if documents:
+        if args.output_file:
+            x = Tagged()
+            with open(args.output_file, 'a') as fout:
+                try:
+                    for d in documents:
+                        x.write(d, fout)
+                except Exception as err:
+                    print('export to tagged file failed: %s' % err)
+    else:
+        print('No DOI supplied!  Invoke with -d DOI')
 
     # Plos ONE example from Habanero docs
     # doi = '10.1371/journal.pone.0033693'
 
     # MDPI Galaxies -- has abstract
-    doi = '10.3390/galaxies9040111'
+    # doi = '10.3390/galaxies9040111'
 
     # PNAS volume 1 paper (1915)
     # doi = '10.1073/pnas.1.1.51'
-
-    try:
-        x = DOIHarvester()
-        foo = x.harvest(doi)
-        # uncomment next line to see the raw return from crossref
-        #print(foo)
-
-        # uncomment next line to see return from crossref, but rendered nicely
-        #print(json.dumps(foo, sort_keys=True, indent=4))
-
-        # uncomment next 3 lines to see what would happen if you write
-        # something for the JSON parser (in place of jazz noises...)
-        translate = CrossrefJSONParser()
-        output_dictionary = translate.parse(foo)
-        print('Output dictionary: %s' % output_dictionary)
-    except Exception as err:
-        print(err)
-
 
 if __name__ == '__main__':
     main()

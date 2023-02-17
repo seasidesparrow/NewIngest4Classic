@@ -1,68 +1,78 @@
-from adsingestp.parsers import arxiv, crossref, datacite, jats
-from glob import glob
-from newparse.translator import Translator
+import argparse
+from newparse import translator, doiharvest
+from adsingestp.parsers.crossref import CrossrefParser
 from pyingest.serializers.classic import Tagged
-import json
 
-
-def load_file(filename):
-    try:
-        with open(filename, 'rb') as fx:
-            data = fx.read()
-    except Exception as err:
-        print("error loading file: %s" % err)
-    else:
-        return data
+def get_args():
+    parser = argparse.ArgumentParser('Create an ADS record from a DOI')
+    parser.add_argument('-d',
+                        '--doi',
+                        dest='fetch_doi',
+                        action='store',
+                        default=None,
+                        help='DOI to fetch')
+    parser.add_argument('-f',
+                        '--outfile',
+                        dest='output_file',
+                        action='store',
+                        default='./doi.tag',
+                        help='File that tagged format will be written to')
+    args = parser.parse_args()
+    return args
 
 
 def main():
-    infiles = glob('newparse/tests/data/input/*jats*.xml')
-    # infiles = ['newparse/tests/data/input/apsjats_10.1103.PhysRevA.97.019999.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevAccelBeams.21.014702.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevA.97.012101.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevB.96.081117.fulltext.xml', 'newparse/tests/data/input/apsjats_10.1103.PhysRevB.96.104435.fulltext.xml', 'newparse/tests/data/input/VOR_10.1119_10.0009409.xml']
-    filetype = 'jats'
-    documents=[]
 
-    for f in infiles:
-        print('file: %s' % f)
+    args = get_args()
+    documents = []
+
+    if args.proc_files:
+    # This route processes data from user-input files
+        pass
+
+    # This route fetches data from Crossref via the Habanero module
+    elif args.fetch_doi:
         try:
-            data = load_file(f)
-            if data:
-                if filetype == 'arxiv':
-                    parser = arxiv.ArxivParser()
-                elif filetype == 'crossref':
-                    parser = crossref.CrossrefParser()
-                elif filetype == 'datacite':
-                    parser = datacite.DataciteParser()
-                elif filetype == 'jats':
-                    parser = jats.JATSParser()
-                else:
-                    parser = None
-
-                if parser:
-                    try:
-                        parsed = parser.parse(data)
-                    except Exception as err:
-                        print("Parsing failed: %s" % err)
-                    else:
-                        if parsed:
-                            #outf = f.split('/')[-1] + '.json'
-                            #with open(outf,'w') as fj:
-                            #    fj.write(json.dumps(parsed, indent=2, sort_keys=True))
-                            xlator = Translator(data=parsed)
-                            xlator.translate()
-                            documents.append(xlator.output)
-            else:
-                print("No useful data from %s, skipping..." % f)
+            getdoi = doiharvest.DoiHarvester(doi=args.fetch_doi)
+            xml_record = getdoi.get_record()
         except Exception as err:
-            print('oops: %s' % err)
-
-    for d in documents:
-        x = Tagged()
-        with open('test.tag','a') as fw:
+            print('parsing failed, because doi_harvester failed: %s' % err)
+        else:
             try:
-                x.write(d, fw)
+                parser = CrossrefParser()
+                ingest_record = parser.parse(xml_record)
             except Exception as err:
-                print('serializer problem... %s' % err)
+                print('parsing failed, because ingestparser failed: %s' % err)
+            else:
+                try:
+                    t = translator.Translator(data=ingest_record)
+                    t.translate()
+                    documents.append(t.output)
+                except Exception as err:
+                    print('tagged record creation failed for doi %s: %s' % (args.fetch_doi, err))
 
+
+    if documents:
+        if args.output_file:
+            x = Tagged()
+            with open(args.output_file, 'a') as fout:
+                try:
+                    for d in documents:
+                        x.write(d, fout)
+                except Exception as err:
+                    print('export to tagged file failed: %s' % err)
+    #else:
+    #    print('No DOI supplied!  Invoke with -d DOI')
+
+    # Plos ONE example from Habanero docs
+    # doi = '10.1371/journal.pone.0033693'
+
+    # MDPI Galaxies -- has abstract
+    # doi = '10.3390/galaxies9040111'
+
+    # PNAS volume 1 paper (1915)
+    # doi = '10.1073/pnas.1.1.51'
 
 if __name__ == '__main__':
     main()
+

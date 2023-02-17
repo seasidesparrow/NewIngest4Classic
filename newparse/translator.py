@@ -1,3 +1,4 @@
+from .exceptions import *
 from pyingest.config.config import *
 from adsenrich.bibcodes import BibcodeGenerator
 from bs4 import BeautifulSoup
@@ -10,8 +11,6 @@ try:
 except Exception as err:
     print('Warning, BibcodeGenerator not initialized!')
 
-class ParserException(Exception):
-    pass
 
 class Translator(object):
     '''
@@ -97,28 +96,34 @@ class Translator(object):
         attribs = contrib.get('attrib', None)
         affil = contrib.get('affiliation', None)
         affarray = []
-        if affil:
-            for a in affil:
-                aff = a.get('affPubRaw', None)
-                if aff:
-                    affarray.append(aff)
-        if attribs:
-            orcid = attribs.get('orcid', None)
-            if orcid:
-                orcid = '<ID system="ORCID">' + orcid + '</ID>'
-                affarray.append(orcid)
-            email = attribs.get('email', None)
-        else:
-            orcid = None
-            email = None
-
+        orcid = None
+        email = None
         outaffil=None
-        if affarray:
-            outaffil = '; '.join(affarray)
-            if email:
-                email = '<EMAIL>' + email + '</EMAIL>'
-                outaffil = outaffil + ' ' + email
-        return outaffil
+
+        try:
+            if affil:
+                for a in affil:
+                    aff = a.get('affPubRaw', None)
+                    if aff:
+                        affarray.append(aff)
+            if attribs:
+                orcid = attribs.get('orcid', None)
+                if orcid:
+                    orcid = '<ID system="ORCID">' + orcid + '</ID>'
+                    affarray.append(orcid)
+                email = attribs.get('email', None)
+
+            if affarray:
+                outaffil = '; '.join(affarray)
+                if email:
+                    email = '<EMAIL>' + email + '</EMAIL>'
+                    outaffil = outaffil + ' ' + email
+        except Exception as err:
+            print('Error in _get_affil: %s' % err)
+        if outaffil:
+            return outaffil
+        else:
+            return ''
             
 
     # ALL CONTRIB (NAME & AFFIL)
@@ -135,6 +140,8 @@ class Translator(object):
                     auth = self._get_name(name)
                     # person attribs and affil
                     aff = self._get_affil(a)
+                    if aff == 'None':
+                        aff = ''
                     author_list.append(auth)
                     affil_list.append(aff)
             self.output['authors'] = author_list
@@ -148,7 +155,7 @@ class Translator(object):
             abstract_raw = abstract.get('textEnglish', None)
         #tagset = JATS_TAGSET['abstract'] or None
         #self.output['abstract'] = self._detag(abstract_raw, tagset)
-        self.output['abstract'] = abstract_raw
+            self.output['abstract'] = abstract_raw
 
 
     def _get_keywords(self):
@@ -245,16 +252,17 @@ class Translator(object):
         if pubstring:
             self.output['publication'] = pubstring
 
-    def _get_bibcode(self):
-        bibcode = None
+    def _get_bibcode(self, bibstem=None):
         try:
-            self.output['bibcode'] = bibgen.make_bibcode(self.data)
+            self.output['bibcode'] = bibgen.make_bibcode(self.data, bibstem=bibstem)
         except Exception as err:
             print('Couldnt make a bibcode: %s' % str(err))
 
     def translate(self, data=None, publisher=None, bibstem=None):
+        if data:
+            self.data = data
         if not self.data:
-            raise ParserException('You need to supply data to translate!')
+            raise NoParsedDataException('You need to supply data to translate!')
         else:
             self._get_title()
             self._get_abstract()
@@ -264,4 +272,4 @@ class Translator(object):
             self._get_references()
             self._get_properties()
             self._get_publication()
-            self._get_bibcode()
+            self._get_bibcode(bibstem=bibstem)
